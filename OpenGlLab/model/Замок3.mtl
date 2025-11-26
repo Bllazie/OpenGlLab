@@ -1,0 +1,74 @@
+# Blender 5.0.0 MTL File: 'Замок3.blend'
+# www.blender.org
+
+newmtl black
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+Pr 0.400000
+Pm 0.000000
+
+newmtl door
+Kd 0.800000 0.800000 0.800000
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+
+newmtl wall
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd C:/Users/mrsiv/Downloads/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png
+map_Pr C:/Users/mrsiv/Downloads/Bricks097_1K-PNG/Bricks097_1K-PNG_Roughness.png
+map_Bump -bm 1.000000 C:/Users/mrsiv/Downloads/Bricks097_1K-PNG/Bricks097_1K-PNG_NormalGL.png
+
+newmtl wood
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.000000
+d 1.000000
+illum 2
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
+map_Kd C:/Users/mrsiv/Downloads/WoodFloor043_1K-JPG/WoodFloor043_1K-JPG_Color.jpg
+map_Pm C:/Users/mrsiv/Downloads/WoodFloor043_1K-JPG/WoodFloor043_1K-JPG_Metalness.jpg
+map_Pr C:/Users/mrsiv/Downloads/WoodFloor043_1K-JPG/WoodFloor043_1K-JPG_Roughness.jpg
+map_Bump -bm 1.000000 C:/Users/mrsiv/Downloads/WoodFloor043_1K-JPG/WoodFloor043_1K-JPG_NormalGL.jpg
+
+newmtl Материал
+Kd 0.423774 0.412085 0.593650
+Ks 0.500000 0.500000 0.500000
+Ke 0.000000 0.000000 0.000000
+Ni 1.500000
+d 1.000000
+illum 2
+Pr 0.500000
+Pm 0.000000
+Ps 0.000000
+Pc 0.000000
+Pcr 0.030000
+aniso 0.000000
+anisor 0.000000
