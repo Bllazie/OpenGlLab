@@ -284,9 +284,19 @@ int main() {
     const char* objPath = "model/Замок3.obj"; 
     const char* texturePath = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png";  
 
+    const char* objPathSphere = "model/sphere1.obj";
+    const char* texturePathSphere = "model/wood/wood_planks_diff_1k.jpg";
     std::vector<Vertex> modelVertices;
     std::vector<unsigned int> modelIndices;
     if (!loadOBJ(objPath, modelVertices, modelIndices)) {
+        std::cerr << "Failed to load OBJ. Exiting.\n";
+        glfwTerminate();
+        return -1;
+    }
+    
+    std::vector<Vertex> modelVerticesSphere;
+    std::vector<unsigned int> modelIndicesSphere;
+    if (!loadOBJ(objPathSphere, modelVerticesSphere, modelIndicesSphere)) {
         std::cerr << "Failed to load OBJ. Exiting.\n";
         glfwTerminate();
         return -1;
@@ -295,7 +305,10 @@ int main() {
     if (texture == 0) {
         std::cerr << "Failed to load texture. Using white.\n";
     }
-
+    unsigned int textureSphere = loadTexture(texturePathSphere);
+    if (texture == 0) {
+        std::cerr << "Failed to load texture. Using white.\n";
+    }
     GLuint modelVAO, modelVBO, modelEBO;
     glGenVertexArrays(1, &modelVAO);
     glGenBuffers(1, &modelVBO);
@@ -305,6 +318,24 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER, modelVertices.size() * sizeof(Vertex), modelVertices.data(), GL_STATIC_DRAW);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, modelEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, modelIndices.size() * sizeof(unsigned int), modelIndices.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+
+    GLuint sphereVAO, sphereVBO, sphereEBO;
+    glGenVertexArrays(1, &sphereVAO);
+    glGenBuffers(1, &sphereVBO);
+    glGenBuffers(1, &sphereEBO);
+    glBindVertexArray(sphereVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
+    glBufferData(GL_ARRAY_BUFFER, modelVerticesSphere.size() * sizeof(Vertex), modelVerticesSphere.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sphereEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, modelIndicesSphere.size() * sizeof(unsigned int), modelIndicesSphere.data(), GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
     glEnableVertexAttribArray(0);
@@ -374,7 +405,7 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-    glFrontFace(GL_CW);
+    glFrontFace(GL_CCW);
     glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
 
     float lastFrame = 0.0f;
@@ -411,6 +442,19 @@ int main() {
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
 
+        //sphere
+        glBindVertexArray(sphereVAO);
+        glm::mat4 sphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, -3.0f));
+        sphereModel = glm::scale(sphereModel, glm::vec3(0.5f));
+        glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(sphereModel));
+
+        glUniform1i(modeLoc, 0); 
+        glBindTexture(GL_TEXTURE_2D, textureSphere);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndicesSphere.size()), GL_UNSIGNED_INT, 0);
+
+        glBindVertexArray(0);
+        // end sphere
+
         glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), lightPos);
         lightModel = glm::scale(lightModel, glm::vec3(0.2f));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(lightModel));
@@ -429,8 +473,11 @@ int main() {
 
     glDeleteVertexArrays(1, &modelVAO);
     glDeleteVertexArrays(1, &lightVAO);
+    glDeleteVertexArrays(1, &sphereVAO);
     glDeleteBuffers(1, &modelVBO);
     glDeleteBuffers(1, &modelEBO);
+    glDeleteBuffers(1, &sphereVBO);
+    glDeleteBuffers(1, &sphereEBO);
     glDeleteBuffers(1, &lightVBO);
     glDeleteBuffers(1, &lightEBO);
     glDeleteProgram(prog);
