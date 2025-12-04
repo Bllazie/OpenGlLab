@@ -306,7 +306,7 @@ int main() {
         std::cerr << "Failed to load texture. Using white.\n";
     }
     unsigned int textureSphere = loadTexture(texturePathSphere);
-    if (texture == 0) {
+    if (textureSphere == 0) {
         std::cerr << "Failed to load texture. Using white.\n";
     }
     GLuint modelVAO, modelVBO, modelEBO;
