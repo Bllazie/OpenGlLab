@@ -410,6 +410,8 @@ int main() {
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glCullFace(GL_BACK);
     glFrontFace(GL_CCW);
     glClearColor(0.12f, 0.12f, 0.12f, 1.0f);
@@ -450,7 +452,12 @@ int main() {
         model = glm::scale(model, glm::vec3(0.5f)); 
         model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -3.0f));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniform1i(modeLoc, 0); 
+        glUniform1i(modeLoc, 0);
+        glDepthMask(GL_FALSE);
+        glBindVertexArray(modelVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        glDepthMask(GL_TRUE);
         glBindVertexArray(modelVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
@@ -462,8 +469,11 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(sphereModel));
 
         glUniform1i(modeLoc, 0); 
+        glDepthMask(GL_FALSE);
         glBindTexture(GL_TEXTURE_2D, textureSphere);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndicesSphere.size()), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        glDepthMask(GL_TRUE);
 
         glBindVertexArray(0);
         // end sphere
