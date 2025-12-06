@@ -285,15 +285,22 @@ int main() {
     int fogColorLoc = glGetUniformLocation(prog, "fogColor");
     int fogStartLoc = glGetUniformLocation(prog, "fogStart");
     int fogEndLoc = glGetUniformLocation(prog, "fogEnd");
-    int fogDensityLoc = glGetUniformLocation(prog, "fogDensity"); 
+    int fogDensityLoc = glGetUniformLocation(prog, "fogDensity");
     int isTerrainLoc = glGetUniformLocation(prog, "isTerrain");
+    int normalLoc = glGetUniformLocation(prog, "normalTexture");
+    int numLightsLoc = glGetUniformLocation(prog, "numLights");
+    int lightPositionsLoc = glGetUniformLocation(prog, "lightPositions");
+    int lightColorsLoc = glGetUniformLocation(prog, "lightColors");
+    int invertNormalLoc = glGetUniformLocation(prog, "invertNormal");
 
-    const char* objPath = "model/Замок3.obj"; 
-    const char* texturePath = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png";  
+    const char* objPath = "model/Замок3.obj";
+    const char* texturePath = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png";
+    const char* texturePathNormal = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_NormalGL.png";
 
     const char* objPathSphere = "model/sphere1.obj";
     const char* texturePathSphere = "model/wood/wood_planks_diff_1k.jpg";
-    const char* texturePathGrass = "model/grass/Grass002_1K-PNG/Grass002_1K-PNG_Color.png";
+    const char* texturePathGrass = "model/grass/Grass002_1K-PNG_Color.png";
+    const char* normalPathGlass = "model/grass/Grass002_1K-PNG_NormalGL.png";
     std::vector<Vertex> modelVertices;
     std::vector<unsigned int> modelIndices;
     if (!loadOBJ(objPath, modelVertices, modelIndices)) {
@@ -301,7 +308,7 @@ int main() {
         glfwTerminate();
         return -1;
     }
-    
+
     std::vector<Vertex> modelVerticesSphere;
     std::vector<unsigned int> modelIndicesSphere;
     if (!loadOBJ(objPathSphere, modelVerticesSphere, modelIndicesSphere)) {
@@ -321,6 +328,14 @@ int main() {
     if (textureGrass == 0) {
         std::cerr << "Failed to load texture. Using white.\n";
     }
+    unsigned int normalTextureCastle = loadTexture(texturePathNormal);
+    if (normalTextureCastle == 0){
+        std::cerr << "Failed normal castle.\n";
+    }
+    unsigned int normalTextureGrass = loadTexture(normalPathGlass);
+    if (normalTextureGrass == 0) {
+        std::cerr << "Failed normal terrain.\n";
+    }
     GLuint modelVAO, modelVBO, modelEBO;
     glGenVertexArrays(1, &modelVAO);
     glGenBuffers(1, &modelVBO);
@@ -337,6 +352,8 @@ int main() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(8 * sizeof(float))); 
+    glEnableVertexAttribArray(3);
     glBindVertexArray(0);
 
     // Ландшафт
@@ -497,7 +514,7 @@ int main() {
     glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
     int modeLoc = glGetUniformLocation(prog, "mode");
     int textureLoc = glGetUniformLocation(prog, "texture1");
-
+   
     while (!glfwWindowShouldClose(win)) {
         float currentFrame = (float)glfwGetTime();
         float deltaTime = currentFrame - lastFrame;
@@ -506,83 +523,116 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(prog);
 
-        glUniform1i(fogModeLoc, 1);  // 1 = linear fog (0=none, 2=exp, 3=exp2)
-        glm::vec3 fogColor(0.8f, 0.9f, 1.0f);  // Светло-голубой туман, подбери (или серый 0.5,0.5,0.5)
-        glUniform3f(fogColorLoc, fogColor.r, fogColor.g, fogColor.b);
-        glUniform1f(fogStartLoc, 5.0f);   // Начало тумана (near)
-        glUniform1f(fogEndLoc, 20.0f);    // Конец тумана (far)
+        // Fog uniforms (unchanged)
+        glUniform1i(fogModeLoc, 1); // 1 = linear fog (0=none, 2=exp, 3=exp2)
+        glm::vec3 fogC(0.8f, 0.9f, 1.0f); // Светло-голубой туман
+        glUniform3f(fogColorLoc, fogC.r, fogC.g, fogC.b);
+        glUniform1f(fogStartLoc, 5.0f); // Начало тумана (near)
+        glUniform1f(fogEndLoc, 20.0f); // Конец тумана (far)
         glUniform1f(fogDensityLoc, 0.05f); // Плотность (для exp, если переключаешь)
 
+        // View and projection (unchanged)
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
         glUniformMatrix4fv(glGetUniformLocation(prog, "uView"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uProj"), 1, GL_FALSE, glm::value_ptr(proj));
-        glUniform3f(glGetUniformLocation(prog, "lightPos"), lightPos.x, lightPos.y, lightPos.z);
+
+        // Multi-lights (замена single light)
+        const int NUM_LIGHTS = 3;
+        glm::vec3 lightPositions[NUM_LIGHTS] = {
+             glm::vec3(1.2f, 1.0f, 2.0f), // Основной
+             glm::vec3(-2.0f, 0.5f, -1.0f), // Левый
+             glm::vec3(0.0f, 2.0f, -4.0f) // Дальний
+        };
+        glm::vec3 lightColors[NUM_LIGHTS] = {
+            glm::vec3(1.0f, 1.0f, 1.0f), // Белый
+            glm::vec3(0.0f, 0.0f, 1.0f), // Голубой
+            glm::vec3(1.0f, 0.0f, 0.0f) // Розовый
+        }; 
+        glUniform1i(numLightsLoc, NUM_LIGHTS);
+        glUniform3fv(lightPositionsLoc, NUM_LIGHTS, (float*)lightPositions);
+        glUniform3fv(lightColorsLoc, NUM_LIGHTS, (float*)lightColors);
+        glUniform3f(glGetUniformLocation(prog, "ambientColor"), 0.1f, 0.1f, 0.1f);  // Global ambient
         glUniform3f(glGetUniformLocation(prog, "viewPos"), cameraPos.x, cameraPos.y, cameraPos.z);
-        glUniform3f(glGetUniformLocation(prog, "lightColor"), 1.0f, 1.0f, 1.0f);
 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glUniform1i(textureLoc, 0);
-
-        //Ландшафт
+        //Ландшафт (multi-texture: diffuse grass + normal)
         glm::mat4 terrainModel = glm::mat4(1.0f);
-        terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -1.0f, -3.0f));  // Под башней
-        terrainModel = glm::scale(terrainModel, glm::vec3(5.0f));  // Уже в gen
+        terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -0.5f, -3.0f)); // Под башней
+        terrainModel = glm::scale(terrainModel, glm::vec3(2.0f)); // Уже в gen
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(terrainModel));
-        glUniform1i(modeLoc, 0);  // Освещение + текстура (или procedural color в frag)
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, textureGrass);  // Используй brick для травы? Или 0 для procedural
+        glUniform1i(modeLoc, 0);
+        glUniform1i(isTerrainLoc, 1); // Procedural + normal
+        glActiveTexture(GL_TEXTURE0);  // Diffuse
+        glBindTexture(GL_TEXTURE_2D, textureGrass ? textureGrass : 0);
         glUniform1i(textureLoc, 0);
-        glDepthMask(GL_TRUE);  // Непрозрачный
+        glActiveTexture(GL_TEXTURE1);  // Normal map
+        glBindTexture(GL_TEXTURE_2D, normalTextureGrass ? normalTextureGrass : 0);
+        glUniform1i(normalLoc, 1);
+        glDepthMask(GL_TRUE); // Непрозрачный
         glBindVertexArray(terrainVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(terrainIndices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-    
-       //Конец ландшафта
 
+        //Конец ландшафта
+
+         // Башня (multi-texture: bricks + normal)
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::scale(model, glm::vec3(0.5f)); 
-        model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -3.0f));
+        model = glm::scale(model, glm::vec3(0.5f));
+        model = glm::translate(model, glm::vec3(0.0f, -1.0f, -3.0f));  // Фикс: translate(model, ...)
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(modeLoc, 0);
-        glUniform1i(isTerrainLoc, 0);  // <-- Явно: Не terrain
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture);  // Brick для башни
+        glUniform1i(isTerrainLoc, 0); // Не terrain
+        glActiveTexture(GL_TEXTURE0);  // Diffuse
+        glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(textureLoc, 0);
-        glDepthMask(GL_FALSE);
+        glActiveTexture(GL_TEXTURE1);  // Normal map
+        glBindTexture(GL_TEXTURE_2D, normalTextureCastle ? normalTextureCastle : 0);
+        glUniform1i(normalLoc, 1);
+        glDepthMask(GL_TRUE);  // Непрозрачная — depth test on
         glBindVertexArray(modelVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-       
+        // glDepthMask(GL_TRUE);
 
-        //sphere
+        //sphere (diffuse wood + no normal)
         glBindVertexArray(sphereVAO);
         glm::mat4 sphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, -3.0f));
         sphereModel = glm::scale(sphereModel, glm::vec3(0.5f));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(sphereModel));
-
-        glUniform1i(modeLoc, 0); 
-        glDepthMask(GL_FALSE);
+        glUniform1i(modeLoc, 0);
+        glUniform1i(isTerrainLoc, 0);
+        glUniform1i(invertNormalLoc, 1);
+        glActiveTexture(GL_TEXTURE0);  // Diffuse
         glBindTexture(GL_TEXTURE_2D, textureSphere);
+        glUniform1i(textureLoc, 0);
+        glActiveTexture(GL_TEXTURE1);  // No normal
+        glBindTexture(GL_TEXTURE_2D, 0);
+        glUniform1i(normalLoc, 1);
+        glDepthMask(GL_TRUE);
+        glBindVertexArray(sphereVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndicesSphere.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-        glDepthMask(GL_TRUE);
+        glUniform1i(invertNormalLoc, 0);
 
         glBindVertexArray(0);
         // end sphere
 
-        glm::mat4 lightModel = glm::translate(glm::mat4(1.0f), lightPos);
-        lightModel = glm::scale(lightModel, glm::vec3(0.2f));
-        glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(lightModel));
-        glUniform1i(modeLoc, 1);
-        glBindTexture(GL_TEXTURE_2D, 0); 
-
-        glDisable(GL_CULL_FACE); 
-        glBindVertexArray(lightVAO);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); 
-        glBindVertexArray(0);
-        glEnable(GL_CULL_FACE);
+        for (int i = 0; i < NUM_LIGHTS; ++i) {
+            glm::mat4 lightModel = glm::mat4(1.0f);
+            lightModel = glm::translate(lightModel, lightPositions[i]);  // Позиция i-й лампы
+            lightModel = glm::scale(lightModel, glm::vec3(0.2f));
+            glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(lightModel));
+            glUniform1i(modeLoc, 1);
+            glUniform1i(isTerrainLoc, 0);  // Not terrain
+            glActiveTexture(GL_TEXTURE0);  // No texture
+            glBindTexture(GL_TEXTURE_2D, 0);
+            glUniform1i(textureLoc, 0);
+            glDisable(GL_CULL_FACE);
+            glBindVertexArray(lightVAO);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            glBindVertexArray(0);
+            glEnable(GL_CULL_FACE);
+        }
 
         glfwSwapBuffers(win);
         glfwPollEvents();
@@ -600,6 +650,8 @@ int main() {
     glDeleteBuffers(1, &lightEBO);
     glDeleteBuffers(1, &terrainVBO);
     glDeleteBuffers(1, &terrainEBO);
+    if (normalTextureCastle) glDeleteTextures(1, &normalTextureCastle);
+    if (normalTextureGrass) glDeleteTextures(1, &normalTextureGrass);
     glDeleteProgram(prog);
     if (texture) glDeleteTextures(1, &texture);
     glfwDestroyWindow(win);
