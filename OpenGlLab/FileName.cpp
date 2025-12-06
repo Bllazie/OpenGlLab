@@ -285,13 +285,15 @@ int main() {
     int fogColorLoc = glGetUniformLocation(prog, "fogColor");
     int fogStartLoc = glGetUniformLocation(prog, "fogStart");
     int fogEndLoc = glGetUniformLocation(prog, "fogEnd");
-    int fogDensityLoc = glGetUniformLocation(prog, "fogDensity");
+    int fogDensityLoc = glGetUniformLocation(prog, "fogDensity"); 
+    int isTerrainLoc = glGetUniformLocation(prog, "isTerrain");
 
     const char* objPath = "model/Замок3.obj"; 
     const char* texturePath = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png";  
 
     const char* objPathSphere = "model/sphere1.obj";
     const char* texturePathSphere = "model/wood/wood_planks_diff_1k.jpg";
+    const char* texturePathGrass = "model/grass/Grass002_1K-PNG/Grass002_1K-PNG_Color.png";
     std::vector<Vertex> modelVertices;
     std::vector<unsigned int> modelIndices;
     if (!loadOBJ(objPath, modelVertices, modelIndices)) {
@@ -315,6 +317,10 @@ int main() {
     if (textureSphere == 0) {
         std::cerr << "Failed to load texture. Using white.\n";
     }
+    unsigned int textureGrass = loadTexture(texturePathGrass);
+    if (textureGrass == 0) {
+        std::cerr << "Failed to load texture. Using white.\n";
+    }
     GLuint modelVAO, modelVBO, modelEBO;
     glGenVertexArrays(1, &modelVAO);
     glGenBuffers(1, &modelVBO);
@@ -332,6 +338,77 @@ int main() {
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
     glBindVertexArray(0);
+
+    // Ландшафт
+    const int TERRAIN_SIZE = 64;  // Grid size (вершины: SIZE x SIZE)
+    const float TERRAIN_SCALE = 10.0f;  // Размер мира (X/Z)
+    std::vector<Vertex> terrainVertices;
+    std::vector<unsigned int> terrainIndices;
+
+    for (int i = 0; i < TERRAIN_SIZE; ++i) {
+        for (int j = 0; j < TERRAIN_SIZE; ++j) {
+            float x = (float)i / (TERRAIN_SIZE - 1) * 2.0f - 1.0f;  // [-1,1]
+            float z = (float)j / (TERRAIN_SIZE - 1) * 2.0f - 1.0f;
+            x *= TERRAIN_SCALE;  // Масштаб
+            z *= TERRAIN_SCALE;
+
+            // Procedural height: Многослойный шум (octaves)
+            float height = 0.0f;
+            float amplitude = 1.0f;
+            float frequency = 0.1f;
+            for (int octave = 0; octave < 4; ++octave) {  // 4 слоя для детализации
+                height += sin(x * frequency) * cos(z * frequency) * amplitude;
+                amplitude *= 0.5f;
+                frequency *= 2.0f;
+            }
+            height *= -0.5f;  // Амплитуда холмов (max 0.5)
+
+            glm::vec3 pos(x, height, z);
+            glm::vec3 normal(0.0f, 1.0f, 0.0f);  // Базовая нормаль (up); можно улучшить cross-product
+
+            // UV для текстуры (если хочешь текстурировать)
+            glm::vec2 uv((float)i / (TERRAIN_SIZE - 1), (float)j / (TERRAIN_SIZE - 1));
+
+            terrainVertices.push_back({ pos, normal, uv });
+
+        }
+    }
+
+    // Indices для треугольников (grid)
+    for (int i = 0; i < TERRAIN_SIZE - 1; ++i) {
+        for (int j = 0; j < TERRAIN_SIZE - 1; ++j) {
+            unsigned int base = i * TERRAIN_SIZE + j;
+            // Первый треугольник
+            terrainIndices.push_back(base + 1);
+            terrainIndices.push_back(base + TERRAIN_SIZE);
+            terrainIndices.push_back(base);
+            // Второй
+            terrainIndices.push_back(base + 1);
+            terrainIndices.push_back(base + TERRAIN_SIZE + 1);
+            terrainIndices.push_back(base + TERRAIN_SIZE);
+        }
+    }
+
+    // VAO/VBO для terrain
+    GLuint terrainVAO, terrainVBO, terrainEBO;
+    glGenVertexArrays(1, &terrainVAO);
+    glGenBuffers(1, &terrainVBO);
+    glGenBuffers(1, &terrainEBO);
+    glBindVertexArray(terrainVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, terrainVBO);
+    glBufferData(GL_ARRAY_BUFFER, terrainVertices.size() * sizeof(Vertex), terrainVertices.data(), GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, terrainEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, terrainIndices.size() * sizeof(unsigned int), terrainIndices.data(), GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
+    glEnableVertexAttribArray(2);
+    glBindVertexArray(0);
+
+    // Конец ландшафта
 
     GLuint sphereVAO, sphereVBO, sphereEBO;
     glGenVertexArrays(1, &sphereVAO);
@@ -448,19 +525,36 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(textureLoc, 0);
 
+        //Ландшафт
+        glm::mat4 terrainModel = glm::mat4(1.0f);
+        terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -1.0f, -3.0f));  // Под башней
+        terrainModel = glm::scale(terrainModel, glm::vec3(5.0f));  // Уже в gen
+        glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(terrainModel));
+        glUniform1i(modeLoc, 0);  // Освещение + текстура (или procedural color в frag)
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureGrass);  // Используй brick для травы? Или 0 для procedural
+        glUniform1i(textureLoc, 0);
+        glDepthMask(GL_TRUE);  // Непрозрачный
+        glBindVertexArray(terrainVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(terrainIndices.size()), GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+    
+       //Конец ландшафта
+
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::scale(model, glm::vec3(0.5f)); 
         model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -1.0f, -3.0f));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(modeLoc, 0);
+        glUniform1i(isTerrainLoc, 0);  // <-- Явно: Не terrain
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);  // Brick для башни
+        glUniform1i(textureLoc, 0);
         glDepthMask(GL_FALSE);
         glBindVertexArray(modelVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
         glBindVertexArray(0);
-        glDepthMask(GL_TRUE);
-        glBindVertexArray(modelVAO);
-        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
+       
 
         //sphere
         glBindVertexArray(sphereVAO);
@@ -497,12 +591,15 @@ int main() {
     glDeleteVertexArrays(1, &modelVAO);
     glDeleteVertexArrays(1, &lightVAO);
     glDeleteVertexArrays(1, &sphereVAO);
+    glDeleteVertexArrays(1, &terrainVAO);
     glDeleteBuffers(1, &modelVBO);
     glDeleteBuffers(1, &modelEBO);
     glDeleteBuffers(1, &sphereVBO);
     glDeleteBuffers(1, &sphereEBO);
     glDeleteBuffers(1, &lightVBO);
     glDeleteBuffers(1, &lightEBO);
+    glDeleteBuffers(1, &terrainVBO);
+    glDeleteBuffers(1, &terrainEBO);
     glDeleteProgram(prog);
     if (texture) glDeleteTextures(1, &texture);
     glfwDestroyWindow(win);

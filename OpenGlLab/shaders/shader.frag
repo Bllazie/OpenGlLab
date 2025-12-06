@@ -4,11 +4,12 @@ flat in vec3 FlatNormal;
 in vec2 TexCoord;
 out vec4 FragColor;
 uniform int mode;
+uniform bool isTerrain;  // <-- НОВОЕ: Для procedural terrain
 uniform sampler2D texture1;
 uniform vec3 lightPos;
 uniform vec3 viewPos;
 uniform vec3 lightColor;
-// Fog uniforms (твои)
+// Fog uniforms
 uniform int fogMode;
 uniform vec3 fogColor;
 uniform float fogStart;
@@ -29,15 +30,22 @@ void main() {
                 fogFactor = clamp(exp(- (fogDensity * dist) * (fogDensity * dist)), 0.0, 1.0);
             }
             vec3 final = mix(fogColor, base, fogFactor);
-            FragColor = vec4(final, 1.0);  // Свет непрозрачный (alpha=1)
+            FragColor = vec4(final, 1.0);
             return;
         }
         FragColor = vec4(base, 1.0);
         return;
     }
     
-    // Mode 0: Текстурное освещение + fog
-    vec3 texColor = texture(texture1, TexCoord).rgb;
+    vec3 texColor;
+    if (isTerrain) {  // <-- ФИКС: Procedural для terrain
+        // Цвет по высоте: низ=коричневый (земля), высок=зелёный (трава)
+        float height = FragPos.y + 2.0;  // Offset
+        texColor = mix(vec3(0.4, 0.2, 0.1), vec3(0.2, 0.6, 0.2), smoothstep(-0.5, 0.5, height));
+    } else {
+        texColor = texture(texture1, TexCoord).rgb;
+    }
+    
     float ambientStrength = 0.1;
     vec3 ambient = ambientStrength * lightColor;
     vec3 norm = normalize(FlatNormal);
@@ -66,7 +74,7 @@ void main() {
         color = mix(fogColor, sceneColor, fogFactor);
     }
     
-    // Прозрачность для моделей
-    float alpha = 0.5;  // 50% прозрачности — подбери (0.3=более прозрачно, 0.8=менее)
+    // Прозрачность только для моделей (!terrain)
+    float alpha = isTerrain ? 1.0 : 0.5;  // <-- ФИКС: Terrain opaque
     FragColor = vec4(color, alpha);
 }
