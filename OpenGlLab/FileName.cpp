@@ -281,6 +281,12 @@ int main() {
     std::string fsCode = loadFile("shaders/shader.frag");
     GLuint prog = createProgram(vsCode.c_str(), fsCode.c_str());
 
+    int fogModeLoc = glGetUniformLocation(prog, "fogMode");
+    int fogColorLoc = glGetUniformLocation(prog, "fogColor");
+    int fogStartLoc = glGetUniformLocation(prog, "fogStart");
+    int fogEndLoc = glGetUniformLocation(prog, "fogEnd");
+    int fogDensityLoc = glGetUniformLocation(prog, "fogDensity");
+
     const char* objPath = "model/Замок3.obj"; 
     const char* texturePath = "model/Bricks097_1K-PNG/Bricks097_1K-PNG_Color.png";  
 
@@ -420,6 +426,13 @@ int main() {
         processInput(win, deltaTime);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(prog);
+
+        glUniform1i(fogModeLoc, 1);  // 1 = linear fog (0=none, 2=exp, 3=exp2)
+        glm::vec3 fogColor(0.8f, 0.9f, 1.0f);  // Светло-голубой туман, подбери (или серый 0.5,0.5,0.5)
+        glUniform3f(fogColorLoc, fogColor.r, fogColor.g, fogColor.b);
+        glUniform1f(fogStartLoc, 5.0f);   // Начало тумана (near)
+        glUniform1f(fogEndLoc, 20.0f);    // Конец тумана (far)
+        glUniform1f(fogDensityLoc, 0.05f); // Плотность (для exp, если переключаешь)
 
         glm::mat4 view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
         glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
