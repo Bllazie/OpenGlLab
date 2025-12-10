@@ -90,7 +90,7 @@ bool loadOBJ(const char* path, std::vector<Vertex>& vertices, std::vector<unsign
             iss.clear();
             iss.seekg(0, std::ios::beg);
             std::string dummy;
-            iss >> dummy; 
+            iss >> dummy;
             while (iss >> token) {
                 faceVertices.push_back(token);
             }
@@ -281,6 +281,11 @@ int main() {
     std::string fsCode = loadFile("shaders/shader.frag");
     GLuint prog = createProgram(vsCode.c_str(), fsCode.c_str());
 
+    // Skybox shaders
+    std::string skyVSCode = loadFile("shaders/skybox.vert");
+    std::string skyFSCode = loadFile("shaders/skybox.frag");
+    GLuint skyProg = createProgram(skyVSCode.c_str(), skyFSCode.c_str());
+
     int fogModeLoc = glGetUniformLocation(prog, "fogMode");
     int fogColorLoc = glGetUniformLocation(prog, "fogColor");
     int fogStartLoc = glGetUniformLocation(prog, "fogStart");
@@ -329,13 +334,44 @@ int main() {
         std::cerr << "Failed to load texture. Using white.\n";
     }
     unsigned int normalTextureCastle = loadTexture(texturePathNormal);
-    if (normalTextureCastle == 0){
+    if (normalTextureCastle == 0) {
         std::cerr << "Failed normal castle.\n";
     }
     unsigned int normalTextureGrass = loadTexture(normalPathGlass);
     if (normalTextureGrass == 0) {
         std::cerr << "Failed normal terrain.\n";
     }
+
+    // Skybox texture loading
+    unsigned int skyboxTexture;
+    glGenTextures(1, &skyboxTexture);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+    const char* skyboxFaces[6] = {
+        "skybox/px.jpg",  // +X right
+        "skybox/nx.jpg",  // -X left
+        "skybox/py.jpg",  // +Y top
+        "skybox/ny.jpg",  // -Y bottom
+        "skybox/pz.jpg",  // +Z back
+        "skybox/nz.jpg"   // -Z front
+    };
+    for (unsigned int i = 0; i < 6; i++) {
+        int width, height, nrChannels;
+        unsigned char* data = stbi_load(skyboxFaces[i], &width, &height, &nrChannels, 0);
+        if (data) {
+            glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+                0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+            stbi_image_free(data);
+        }
+        else {
+            std::cout << "Failed to load skybox face: " << skyboxFaces[i] << std::endl;
+        }
+    }
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
     GLuint modelVAO, modelVBO, modelEBO;
     glGenVertexArrays(1, &modelVAO);
     glGenBuffers(1, &modelVBO);
@@ -352,8 +388,6 @@ int main() {
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(8 * sizeof(float))); 
-    glEnableVertexAttribArray(3);
     glBindVertexArray(0);
 
     // Ландшафт
@@ -450,27 +484,27 @@ int main() {
          0.5f, -0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
          0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
         -0.5f, 0.5f, -0.5f, 0.0f, 0.0f, -1.0f,
-        
+
         -0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
         -0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
          0.5f, 0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
          0.5f, -0.5f, 0.5f, 0.0f, 0.0f, 1.0f,
-         
+
          -0.5f, -0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
          -0.5f, -0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
          -0.5f, 0.5f, 0.5f, -1.0f, 0.0f, 0.0f,
          -0.5f, 0.5f, -0.5f, -1.0f, 0.0f, 0.0f,
-         
+
           0.5f, -0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
           0.5f, -0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
           0.5f, 0.5f, 0.5f, 1.0f, 0.0f, 0.0f,
           0.5f, 0.5f, -0.5f, 1.0f, 0.0f, 0.0f,
-         
+
           -0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
            0.5f, 0.5f, -0.5f, 0.0f, 1.0f, 0.0f,
            0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
           -0.5f, 0.5f, 0.5f, 0.0f, 1.0f, 0.0f,
-          
+
           -0.5f, -0.5f, -0.5f, 0.0f, -1.0f, 0.0f,
           -0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
            0.5f, -0.5f, 0.5f, 0.0f, -1.0f, 0.0f,
@@ -478,7 +512,7 @@ int main() {
     };
 
     unsigned int cubeIndices[] = {
-        
+
         0, 1, 2, 2, 3, 0,
         4, 5, 6, 6, 7, 4,
         8, 9, 10, 10, 11, 8,
@@ -502,6 +536,23 @@ int main() {
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
+
+    // Skybox VAO/VBO/EBO
+    GLuint skyboxVAO, skyboxVBO, skyboxEBO;
+    glGenVertexArrays(1, &skyboxVAO);
+    glGenBuffers(1, &skyboxVBO);
+    glGenBuffers(1, &skyboxEBO);
+    glBindVertexArray(skyboxVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, skyboxVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, skyboxEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(cubeIndices), cubeIndices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);  // Only position
+    glBindVertexArray(0);
+
+    int skyboxLoc = glGetUniformLocation(skyProg, "skybox");
+
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_BLEND);
@@ -514,7 +565,7 @@ int main() {
     glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
     int modeLoc = glGetUniformLocation(prog, "mode");
     int textureLoc = glGetUniformLocation(prog, "texture1");
-   
+
     while (!glfwWindowShouldClose(win)) {
         float currentFrame = (float)glfwGetTime();
         float deltaTime = currentFrame - lastFrame;
@@ -548,7 +599,7 @@ int main() {
             glm::vec3(1.0f, 1.0f, 1.0f), // Белый
             glm::vec3(0.0f, 0.0f, 1.0f), // Голубой
             glm::vec3(1.0f, 0.0f, 0.0f) // Розовый
-        }; 
+        };
         glUniform1i(numLightsLoc, NUM_LIGHTS);
         glUniform3fv(lightPositionsLoc, NUM_LIGHTS, (float*)lightPositions);
         glUniform3fv(lightColorsLoc, NUM_LIGHTS, (float*)lightColors);
@@ -634,6 +685,25 @@ int main() {
             glEnable(GL_CULL_FACE);
         }
 
+        // Draw skybox
+        glDepthFunc(GL_LEQUAL);
+        glDisable(GL_CULL_FACE);  // Disable culling to render all faces regardless of winding
+        glm::mat4 viewNoTrans = glm::mat4(glm::mat3(view));  // Remove translation
+        glm::mat4 skyModel = glm::scale(glm::mat4(1.0f), glm::vec3(100.0f));  // Большой масштаб для охвата сцены
+        glUseProgram(skyProg);
+        // Set uniforms AFTER useProgram
+        glUniformMatrix4fv(glGetUniformLocation(skyProg, "uModel"), 1, GL_FALSE, glm::value_ptr(skyModel));
+        glUniformMatrix4fv(glGetUniformLocation(skyProg, "uView"), 1, GL_FALSE, glm::value_ptr(viewNoTrans));
+        glUniformMatrix4fv(glGetUniformLocation(skyProg, "uProj"), 1, GL_FALSE, glm::value_ptr(proj));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+        glUniform1i(skyboxLoc, 0);
+        glBindVertexArray(skyboxVAO);
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        glEnable(GL_CULL_FACE);  // Re-enable culling
+        glDepthFunc(GL_LESS);  // Reset
+
         glfwSwapBuffers(win);
         glfwPollEvents();
     }
@@ -642,6 +712,7 @@ int main() {
     glDeleteVertexArrays(1, &lightVAO);
     glDeleteVertexArrays(1, &sphereVAO);
     glDeleteVertexArrays(1, &terrainVAO);
+    glDeleteVertexArrays(1, &skyboxVAO);
     glDeleteBuffers(1, &modelVBO);
     glDeleteBuffers(1, &modelEBO);
     glDeleteBuffers(1, &sphereVBO);
@@ -650,9 +721,13 @@ int main() {
     glDeleteBuffers(1, &lightEBO);
     glDeleteBuffers(1, &terrainVBO);
     glDeleteBuffers(1, &terrainEBO);
+    glDeleteBuffers(1, &skyboxVBO);
+    glDeleteBuffers(1, &skyboxEBO);
     if (normalTextureCastle) glDeleteTextures(1, &normalTextureCastle);
     if (normalTextureGrass) glDeleteTextures(1, &normalTextureGrass);
+    glDeleteTextures(1, &skyboxTexture);
     glDeleteProgram(prog);
+    glDeleteProgram(skyProg);
     if (texture) glDeleteTextures(1, &texture);
     glfwDestroyWindow(win);
     glfwTerminate();
