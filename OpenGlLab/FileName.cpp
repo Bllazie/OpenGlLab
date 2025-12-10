@@ -609,7 +609,7 @@ int main() {
         //Ландшафт (multi-texture: diffuse grass + normal)
         glm::mat4 terrainModel = glm::mat4(1.0f);
         terrainModel = glm::translate(terrainModel, glm::vec3(0.0f, -0.5f, -3.0f)); // Под башней
-        terrainModel = glm::scale(terrainModel, glm::vec3(2.0f)); // Уже в gen
+        terrainModel = glm::scale(terrainModel, glm::vec3(5.0f)); // Уже в gen
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(terrainModel));
         glUniform1i(modeLoc, 0);
         glUniform1i(isTerrainLoc, 1); // Procedural + normal
