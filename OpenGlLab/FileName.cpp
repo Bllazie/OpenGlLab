@@ -205,6 +205,22 @@ static GLuint createProgram(const char* vs, const char* fs) {
     return p;
 }
 
+static GLuint createProgramWithGS(const char* vs, const char* gs, const char* fs) {
+    GLuint p = glCreateProgram();
+    GLuint a = compileShader(GL_VERTEX_SHADER, vs);
+    GLuint g = compileShader(GL_GEOMETRY_SHADER, gs);
+    GLuint b = compileShader(GL_FRAGMENT_SHADER, fs);
+    glAttachShader(p, a); glAttachShader(p, g); glAttachShader(p, b);
+    glLinkProgram(p);
+
+    GLint ok; glGetProgramiv(p, GL_LINK_STATUS, &ok);
+    if (!ok) {
+        char buf[1024]; glGetProgramInfoLog(p, 1024, nullptr, buf);
+        std::cerr << "Link error: " << buf << std::endl;
+    }
+    return p;
+}
+
 void framebuffer_size_callback(GLFWwindow* window, int w, int h) {
     glViewport(0, 0, w, h);
 }
@@ -280,6 +296,10 @@ int main() {
     std::string vsCode = loadFile("shaders/shader.vert");
     std::string fsCode = loadFile("shaders/shader.frag");
     GLuint prog = createProgram(vsCode.c_str(), fsCode.c_str());
+
+    std::string wireGs = loadFile("shaders/wire.gs");
+    std::string wireFs = loadFile("shaders/wire.frag");
+    GLuint wireProg = createProgramWithGS(vsCode.c_str(), wireGs.c_str(), wireFs.c_str());
 
     // Skybox shaders
     std::string skyVSCode = loadFile("shaders/skybox.vert");
@@ -626,23 +646,44 @@ int main() {
         glBindVertexArray(terrainVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(terrainIndices.size()), GL_UNSIGNED_INT, 0);
 
+        // Наложение каркаса на ландшафт
+        glEnable(GL_POLYGON_OFFSET_LINE);
+        glPolygonOffset(-1.0f, -1.0f);
+        glUseProgram(wireProg);
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uModel"), 1, GL_FALSE, glm::value_ptr(terrainModel));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uView"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uProj"), 1, GL_FALSE, glm::value_ptr(proj));
+        glBindVertexArray(terrainVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(terrainIndices.size()), GL_UNSIGNED_INT, 0);
+        glDisable(GL_POLYGON_OFFSET_LINE);
+        glUseProgram(prog);  // возвращаемся к основному шейдеру
+
         // === Замок ===
         glm::mat4 model = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
         model = glm::translate(model, glm::vec3(0.0f, -1.0f, -3.0f));
         glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(modeLoc, 0);
         glUniform1i(isTerrainLoc, 0);
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture);
         glUniform1i(textureLoc, 0);
-
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, normalTextureCastle);
         glUniform1i(normalLoc, 1);
-
         glBindVertexArray(modelVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
+
+        // Наложение каркаса на замок
+        glEnable(GL_POLYGON_OFFSET_LINE);
+        glPolygonOffset(-1.0f, -1.0f);
+        glUseProgram(wireProg);
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uModel"), 1, GL_FALSE, glm::value_ptr(model));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uView"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uProj"), 1, GL_FALSE, glm::value_ptr(proj));
+        glBindVertexArray(modelVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndices.size()), GL_UNSIGNED_INT, 0);
+        glDisable(GL_POLYGON_OFFSET_LINE);
+        glUseProgram(prog);
 
         // === Сфера ===
         glm::mat4 sphereModel = glm::translate(glm::mat4(1.0f), glm::vec3(2.0f, 0.0f, -3.0f));
@@ -651,15 +692,27 @@ int main() {
         glUniform1i(modeLoc, 0);
         glUniform1i(isTerrainLoc, 0);
         glUniform1i(invertNormalLoc, 1); 
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, textureSphere);
         glUniform1i(textureLoc, 0);
         glUniform1i(normalLoc, 1);
-
         glBindVertexArray(sphereVAO);
         glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndicesSphere.size()), GL_UNSIGNED_INT, 0);
         glUniform1i(invertNormalLoc, 0);
+
+        // Наложение каркаса на сферу
+        glEnable(GL_POLYGON_OFFSET_LINE);
+        glPolygonOffset(-1.0f, -1.0f);
+        glUseProgram(wireProg);
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uModel"), 1, GL_FALSE, glm::value_ptr(sphereModel));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uView"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(wireProg, "uProj"), 1, GL_FALSE, glm::value_ptr(proj));
+        glBindVertexArray(sphereVAO);
+        glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(modelIndicesSphere.size()), GL_UNSIGNED_INT, 0);
+        glDisable(GL_POLYGON_OFFSET_LINE);
+        glUseProgram(prog);
+        glUniform1i(invertNormalLoc, 0);
+
 
         // === Лампы  ===
         for (int i = 0; i < NUM_LIGHTS; ++i) {
@@ -723,6 +776,7 @@ int main() {
     glDeleteProgram(skyProg);
     if (texture) glDeleteTextures(1, &texture);
     glfwDestroyWindow(win);
+    glDeleteProgram(wireProg);
     glfwTerminate();
     return 0;
 }
