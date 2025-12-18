@@ -459,6 +459,17 @@ int main() {
         }
     }
 
+    const int SNOW_COUNT = 500;
+    std::vector<glm::vec3> snowPositions(SNOW_COUNT);
+    for (int i = 0; i < SNOW_COUNT; ++i) {
+        snowPositions[i] = glm::vec3(
+            (rand() % 2000 - 1000) / 100.0f,
+            (rand() % 1000) / 100.0f,
+            (rand() % 2000 - 1000) / 100.0f
+        );
+    }
+
+
     // VAO/VBO для ландшафта
     GLuint terrainVAO, terrainVBO, terrainEBO;
     glGenVertexArrays(1, &terrainVAO);
@@ -713,6 +724,22 @@ int main() {
         glUseProgram(prog);
         glUniform1i(invertNormalLoc, 0);
 
+        glUseProgram(prog);
+        glUniform1i(modeLoc, 1); // Используем режим ламп для свечения снежинок
+        for (int i = 0; i < SNOW_COUNT; ++i) {
+            snowPositions[i].y -= deltaTime * 1.5f; // Скорость падения
+            if (snowPositions[i].y < -1.0f) snowPositions[i].y = 10.0f;
+
+            glm::mat4 snowModel = glm::translate(glm::mat4(1.0f), snowPositions[i]);
+            snowModel = glm::scale(snowModel, glm::vec3(0.02f));
+            glUniformMatrix4fv(glGetUniformLocation(prog, "uModel"), 1, GL_FALSE, glm::value_ptr(snowModel));
+
+            // Белый цвет для снега (используем первый индекс цвета света)
+            glUniform1i(currentLightIndexLoc, 0);
+
+            glBindVertexArray(lightVAO);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        }
 
         // === Лампы  ===
         for (int i = 0; i < NUM_LIGHTS; ++i) {

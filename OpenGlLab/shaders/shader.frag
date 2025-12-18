@@ -23,6 +23,8 @@ uniform float fogStart;
 uniform float fogEnd;
 uniform float fogDensity;
 
+uniform mat4 uModel;
+
 vec3 calcNormal() {
     vec3 normal = normalize(FlatNormal);
     if (textureSize(normalTexture, 0).x > 0) { 
@@ -39,6 +41,7 @@ vec3 calcNormal() {
 void main() {
     if (mode == 1) {
     vec3 base = lightColors[currentLightIndex];  
+    if (length(uModel[0]) < 0.05) base = vec3(1.0, 1.0, 1.0);
     vec3 color = base;
     if (fogMode != 0) {
         float dist = length(viewPos - FragPos);
